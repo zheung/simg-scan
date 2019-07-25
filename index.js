@@ -32,6 +32,14 @@ const scanMaker = function(cachePath, G) {
 				fileName
 			};
 		}
+		else if(_fs.existsSync(realPath) && !force) {
+			G.trace(`扫描 {${fileName}}: 已缓存, 直接读取`);
+
+			return {
+				success: true,
+				buffer: _fs.readFileSync(realPath)
+			};
+		}
 
 		cacher[fileName] = 0;
 
@@ -53,7 +61,9 @@ const scanMaker = function(cachePath, G) {
 
 				_fs.writeFileSync(realPath, buffer.data);
 
-				G.trace(`扫描 {${fileName}}: 尝试成功, ${++cacher[fileName]}/${cdnLen} {${ip}} ${~~(buffer.data.length / 1024)} KB`);
+				G.trace(`扫描 {${fileName}}: 尝试成功, ${cacher[fileName] + 1}/${cdnLen} {${ip}} ${~~(buffer.data.length / 1024)} KB`);
+
+				cacher[fileName] = true;
 
 				if(!success) {
 					success = {
@@ -63,14 +73,16 @@ const scanMaker = function(cachePath, G) {
 				}
 			}
 			catch(error) {
+				let fidx = success ? cacher[fileName] + 1 : cacher[fileName]++;
+
 				if(error.response && error.response.status) {
-					G.trace(`扫描 {${fileName}}: 尝试失败, ${++cacher[fileName]}/${idx}/${cdnLen} {${ip}} ${error.response.status}`);
+					G.trace(`扫描 {${fileName}}: 尝试失败, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.response.status}`);
 				}
 				else if(error.code == 'ETIMEDOUT' || error.code == 'ECONNRESET' || error.code == 'ECONNABORTED') {
-					G.trace(`扫描 {${fileName}}: 尝试错误, ${++cacher[fileName]}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+					G.trace(`扫描 {${fileName}}: 尝试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
 				}
 				else {
-					G.error(`扫描 {${fileName}}: 尝试错误, ${++cacher[fileName]}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+					G.error(`扫描 {${fileName}}: 尝试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
 				}
 			}
 		}, { concurrency: 7 });
@@ -97,7 +109,14 @@ const faceMaker = function(cachePath, G) {
 		const fileName = ctx.params.fileName;
 
 		if(!fileName || !/\w+?\.(jpg|gif|jpeg|png|bmp)$/.test(fileName)) {
-			ctx.status = 403;
+			if(fileName && fileName == 'who') {
+				ctx.type = 'text';
+
+				return 'simg.190725';
+			}
+			else {
+				ctx.status = 403;
+			}
 		}
 		else {
 			G.trace(`扫描 {${fileName}}, 请求来源{${ctx.ip}}`);
@@ -139,7 +158,7 @@ module.exports = async function SimgScan({ C, G, Harb }) {
 
 	await Harb({
 		routs: [
-			{ type: 1, id: 1, method: 'get', path: ':fileName', _stat: {}, func: faceMaker(C.path.cache, G) }
+			{ type: 1, id: 1, method: 'get', path: ':fileName', _stat: {}, func: faceMaker(C.path.cache, G) },
 		],
 	});
 };

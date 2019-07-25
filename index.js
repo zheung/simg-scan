@@ -1,48 +1,145 @@
-const L = (console || {}).log;
-const LE = (console || {}).error;
-
-const _fs = require('fs');
-
 const Axios = require('axios');
+const Bluebird = require('bluebird');
 
 const cdnList = require('./cdn');
+const cdnLen = cdnList.length;
 
-const catcher = async function(url) {
-	let [fileName] = url.match(/(\w+?\.\w+)$/g);
+const cacher = {};
 
-	let cdnLen = cdnList.size;
+const scanMaker = function(cachePath, G) {
+	return async function scanner(fileName, force = false) {
+		let stat = cacher[fileName];
+		let realPath = R(cachePath, fileName);
 
-	let count = 1;
+		if(typeof stat == 'number') {
+			return {
+				success: null,
+				fileName,
+				text: `正在扫描, 请稍后再试, 当前进度{${stat}/${cdnLen}}`
+			};
+		}
+		else if(stat === true) {
+			G.trace(`扫描 {${fileName}}: 已缓存, 直接读取`);
 
-	for(let ip of cdnList) {
-		try {
-			let buffer = await Axios.get(`http://${ip}/large/${fileName}`, {
-				responseType: 'arraybuffer',
-				maxRedirects: 0,
-				headers: {
-					Host: 'wx1.sinaimg.cn',
-					'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.46 Safari/537.36'
+			return {
+				success: true,
+				buffer: _fs.readFileSync(realPath)
+			};
+		}
+		else if(stat === false && !force) {
+			return {
+				success: false,
+				fileName
+			};
+		}
+
+		cacher[fileName] = 0;
+
+		let success;
+
+		await Bluebird.map(cdnList, async function(ip, idx) {
+			if(success) { return; }
+
+			try {
+				let buffer = await Axios.get(`http://${ip}/large/${fileName}`, {
+					responseType: 'arraybuffer',
+					maxRedirects: 0,
+					timeout: 1000 * 60,
+					headers: {
+						Host: 'wx1.sinaimg.cn',
+						'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.46 Safari/537.36'
+					}
+				});
+
+				_fs.writeFileSync(realPath, buffer.data);
+
+				G.trace(`扫描 {${fileName}}: 尝试成功, ${++cacher[fileName]}/${cdnLen} {${ip}} ${~~(buffer.data.length / 1024)} KB`);
+
+				if(!success) {
+					success = {
+						success: true,
+						buffer: buffer.data
+					};
 				}
-			});
-
-			_fs.writeFileSync(`./${fileName}.${ip}.jpg`, buffer.data);
-
-			L(`-------${fileName}-------`);
-			L('[Done]', count++, cdnLen, ip, buffer.status, `${~~(buffer.data.length / 1024)} KB`);
-
-			return;
-		}
-		catch(error) {
-			if(error.response && error.response.status) {
-				L('[Fail]', count++, cdnLen, ip, error.response.status);
 			}
-			else {
-				LE('[Fail]', count++, cdnLen, ip, error.message || error);
+			catch(error) {
+				if(error.response && error.response.status) {
+					G.trace(`扫描 {${fileName}}: 尝试失败, ${++cacher[fileName]}/${idx}/${cdnLen} {${ip}} ${error.response.status}`);
+				}
+				else if(error.code == 'ETIMEDOUT' || error.code == 'ECONNRESET' || error.code == 'ECONNABORTED') {
+					G.trace(`扫描 {${fileName}}: 尝试错误, ${++cacher[fileName]}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+				}
+				else {
+					G.error(`扫描 {${fileName}}: 尝试错误, ${++cacher[fileName]}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+				}
 			}
+		}, { concurrency: 7 });
+
+		if(success) {
+			return success;
 		}
-	}
+		else {
+			// 扫描失败
+			cacher[fileName] = false;
+
+			return {
+				success: false,
+				fileName,
+			};
+		}
+	};
 };
 
-(async () => {
-	catcher('https://wx4.sinaimg.cn/mw690/006kaPr3gy1g43ylm8awoj30kp0rc14p.jpg');
-})();
+const faceMaker = function(cachePath, G) {
+	let scanner = scanMaker(cachePath, G);
+
+	return async function face(raw, ctx) {
+		const fileName = ctx.params.fileName;
+
+		if(!fileName || !/\w+?\.(jpg|gif|jpeg|png|bmp)$/.test(fileName)) {
+			ctx.status = 403;
+		}
+		else {
+			G.trace(`扫描 {${fileName}}, 请求来源{${ctx.ip}}`);
+
+			let result = await scanner(fileName, ctx.query.force !== undefined);
+
+			if(result.success) {
+				G.info(`扫描 {${fileName}}: 成功`);
+
+				ctx.type = _pa.parse(fileName).ext;
+
+				return result.buffer;
+			}
+			else if(result.success === null) {
+				G.info(`扫描 {${fileName}}: 重复请求, 正在扫描, 当前进度{${cacher[fileName]}/${cdnLen}}`);
+
+				ctx.type = 'json';
+
+				return result;
+			}
+			else if(result.success === false) {
+				G.info(`扫描 ${fileName}: 失败`);
+
+				ctx.type = 'json';
+
+				return result;
+			}
+		}
+	};
+};
+
+module.exports = async function SimgScan({ C, G, Harb }) {
+	try {
+		_fs.mkdirSync(C.path.cache);
+	}
+	catch(error) {
+		if(error.code != 'EEXIST') { throw error; }
+	}
+
+	await Harb({
+		routs: [
+			{ type: 1, id: 1, method: 'get', path: ':fileName', _stat: {}, func: faceMaker(C.path.cache, G) }
+		],
+	});
+};

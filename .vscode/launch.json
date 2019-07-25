@@ -5,10 +5,13 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Run",
-			"program": "${workspaceRoot}/index.js",
-			"cwd": "${workspaceRoot}",
 			"runtimeExecutable": "node.exe",
-			"console": "integratedTerminal"
+			"console": "integratedTerminal",
+			"cwd": "${workspaceRoot}",
+			"program": "D:/Proj/desire/index.js",
+			"args": [
+				"${workspaceRoot}"
+			],
 		},
 	]
 }

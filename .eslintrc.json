@@ -9,12 +9,34 @@
 		"sourceType": "script"
 	},
 	"rules": {
-		"indent": [ 0, "tab", { "ignoreComments": true } ],
+		"indent": [ 2, "tab", { "ignoreComments": true, "SwitchCase": 1 } ],
 		"linebreak-style": [ 2, "windows" ],
-		"quotes": [ 1, "single" ],
+		"quotes": [ 2, "single" ],
 		"semi": [ 2, "always" ],
 		"no-unused-vars": [ 2, { "vars": "all", "args": "after-used" } ],
 		"no-console": [ 2 ],
-		"no-var": [ 2 ]
+		"no-var": [ 2 ],
+		"require-atomic-updates": [ 0 ]
+	},
+	"globals": {
+		"_fs": true,
+		"_pa": true,
+		"_qs": true,
+		"_ul": true,
+		"_os": true,
+		"_cr": true,
+
+		"P": true,
+
+		"E": true,
+
+		"L": true,
+		"LE": true,
+
+		"R": true,
+		"RC": true,
+		"RD": true,
+
+		"GG": true
 	}
 }

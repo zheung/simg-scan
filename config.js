@@ -9,8 +9,6 @@ module.exports = {
 	logLevel: 'trace',
 
 	path: {
-		log: './logs',
-
 		cache: './cache'
 	}
 };

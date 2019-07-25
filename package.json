@@ -1,0 +1,17 @@
+{
+	"name": "simg-enum",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "DanoR",
+	"license": "ISC",
+	"devDependencies": {
+		"eslint": "^6.1.0"
+	},
+	"dependencies": {
+		"axios": "^0.19.0"
+	}
+}

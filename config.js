@@ -4,8 +4,6 @@ module.exports = {
 	serv: {
 		host: '0.0.0.0',
 		port: 6868,
-
-		prefix: '/',
 	},
 
 	logLevel: 'trace',

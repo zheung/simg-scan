@@ -61,7 +61,7 @@ const scanMaker = function(cachePath, G) {
 
 				_fs.writeFileSync(realPath, buffer.data);
 
-				G.trace(`扫描 {${fileName}}: 尝试成功, ${cacher[fileName] + 1}/${cdnLen} {${ip}} ${~~(buffer.data.length / 1024)} KB`);
+				G.trace(`扫描 {${fileName}}: 尝试成功, ${cacher[fileName] + 1}/${idx}/${cdnLen} {${ip}} ${~~(buffer.data.length / 1024)} KB`);
 
 				cacher[fileName] = true;
 

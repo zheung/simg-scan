@@ -138,7 +138,7 @@ const faceMaker = function(cachePath, G) {
 				return result;
 			}
 			else if(result.success === false) {
-				G.info(`扫描 ${fileName}: 失败`);
+				G.info(`扫描 {${fileName}}: 失败`);
 
 				ctx.type = 'json';
 

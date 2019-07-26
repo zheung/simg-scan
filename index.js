@@ -43,13 +43,23 @@ const scanMaker = function(cachePath, G) {
 
 		cacher[fileName] = 0;
 
-		let success;
+		let gainData;
+
+		let testCDN = [];
 
 		await Bluebird.map(cdnList, async function(ip, idx) {
-			if(success) { return; }
+			if(gainData) { return; }
+			if(ip.startsWith('x')) { return; }
+
+			// if(!ip.startsWith('m')) {
+			// 	return;
+			// }
+			// else {
+			// 	ip = ip.replace('m', '');
+			// }
 
 			try {
-				let buffer = await Axios.get(`http://${ip}/large/${fileName}`, {
+				let buffer = await Axios.get(`http://${ip}/large/${fileName}?ali_redirect_domain=wx1.sinaimg.cn`, {
 					responseType: 'arraybuffer',
 					maxRedirects: 0,
 					timeout: 1000 * 60,
@@ -65,34 +75,69 @@ const scanMaker = function(cachePath, G) {
 
 				cacher[fileName] = true;
 
-				if(!success) {
-					success = {
+				if(!gainData) {
+					gainData = {
 						success: true,
 						buffer: buffer.data
 					};
 				}
 			}
 			catch(error) {
-				let fidx = success ? cacher[fileName] + 1 : cacher[fileName]++;
+				let fidx = gainData ? cacher[fileName] + 1 : cacher[fileName]++;
 
 				if(error.response && error.response.status) {
 					G.trace(`扫描 {${fileName}}: 尝试失败, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.response.status}`);
+					// G.trace(`扫描: 尝试失败, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.response.status}`, error.response.headers.location);
 				}
 				else if(error.code == 'ETIMEDOUT' || error.code == 'ECONNRESET' || error.code == 'ECONNABORTED') {
 					G.trace(`扫描 {${fileName}}: 尝试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+					// G.error(`扫描: 尝试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
 				}
 				else {
 					G.error(`扫描 {${fileName}}: 尝试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+					// G.error(`扫描: 尝试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
 				}
-			}
-		}, { concurrency: 7 });
 
-		if(success) {
-			return success;
+				testCDN.push([ip, error.code || error.response.status]);
+			}
+		}, { concurrency: 14 });
+
+		if(gainData) {
+			return gainData;
 		}
 		else {
 			// 扫描失败
 			cacher[fileName] = false;
+
+			// G.info(JSON.stringify(testCDN.sort()));
+			// await Bluebird.map(testCDN, async function([ip], idx) {
+			// 	try {
+			// 		let buffer = await Axios.get(`http://${ip}/large/6f5ef307gy1g5c7eimuo3j20fi0nadhv.jpg?ali_redirect_domain=wx1.sinaimg.cn`, {
+			// 			responseType: 'arraybuffer',
+			// 			maxRedirects: 0,
+			// 			timeout: 1000 * 60,
+			// 			headers: {
+			// 				Host: 'wx1.sinaimg.cn',
+			// 				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.46 Safari/537.36'
+			// 			}
+			// 		});
+
+			// 		G.trace(`扫描: 测试成功, ${cacher[fileName] + 1}/${idx}/${cdnLen} {${ip}} ${~~(buffer.data.length / 1024)} KB`);
+			// 	}
+			// 	catch(error) {
+			// 		let fidx = gainData ? cacher[fileName] + 1 : cacher[fileName]++;
+
+			// 		if(error.response && !error.response.status) {
+			// 			G.trace(`扫描: 测试失败, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.response.status}`, error.response.headers.location);
+			// 		}
+			// 		else if(error.code == 'ETIMEDOUT' || error.code == 'ECONNRESET' || error.code == 'ECONNABORTED') {
+			// 			G.error(`扫描: 测试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+			// 		}
+			// 		else {
+			// 			G.error(`扫描: 测试错误, ${fidx}/${idx}/${cdnLen} {${ip}} ${error.message || error}`);
+			// 		}
+			// 	}
+			// }, { concurrency: 14 });
 
 			return {
 				success: false,

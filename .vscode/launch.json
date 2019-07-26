@@ -8,7 +8,7 @@
 			"runtimeExecutable": "node.exe",
 			"console": "integratedTerminal",
 			"cwd": "${workspaceRoot}",
-			"program": "D:/Proj/desire/index.js",
+			"program": "D:/Project/desire/index.js",
 			"args": [
 				"${workspaceRoot}"
 			],
